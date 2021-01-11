@@ -1,0 +1,4 @@
+debug/look
+*.o
+*.d
+release/look
