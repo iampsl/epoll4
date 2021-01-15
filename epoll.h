@@ -21,6 +21,7 @@ class GoContext {
  public:
   void Out();
   void In();
+  void Sleep(int ms);
   Epoll *GetEpoll();
 
  private:
@@ -69,6 +70,7 @@ class Epoll {
 
  private:
   friend class AcceptSocket;
+  friend class TcpSocket;
   friend GoChan;
   friend void goimpl(GoContext *pctx, std::function<void(GoContext &)> func,
                      boost::coroutines2::coroutine<void>::pull_type &pull);

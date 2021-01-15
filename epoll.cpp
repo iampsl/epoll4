@@ -23,6 +23,10 @@ void GoContext::Out() { (*m_yield)(); }
 
 void GoContext::In() { m_self(); }
 
+void GoContext::Sleep(int ms) {
+  //协程sleep一段时间
+}
+
 Epoll *GoContext::GetEpoll() { return m_epoll; }
 
 GoChan::GoChan(Epoll *e) { m_epoll = e; }

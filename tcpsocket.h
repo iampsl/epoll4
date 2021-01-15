@@ -26,24 +26,16 @@ class AcceptSocket : public INotify,
   int m_fd;
 };
 
-class ConnectSocket : public INotify {
- public:
-  ConnectSocket();
-  ~ConnectSocket();
-  ErrNo Open();
-  ErrNo Connect(GoContext* ctx, const char* szip, uint16_t port);
-  void Write();
-  ErrNo Read();
-  void Close();
-};
-
-class TcpSocket : public INotify {
+class TcpSocket : public INotify,
+                  public std::enable_shared_from_this<TcpSocket> {
  public:
   TcpSocket(Epoll* e);
   ~TcpSocket();
   ErrNo Open(int fd);
-  void Write();
-  ErrNo Read();
+  ErrNo Open();
+  ErrNo Connect(GoContext* ctx, const char* szip, uint16_t port);
+  void Write(const void* buf, size_t nbytes);
+  std::tuple<size_t, ErrNo> Read(GoContext* ctx, void* buf, size_t nbytes);
   void Close();
 
  private:
@@ -53,7 +45,8 @@ class TcpSocket : public INotify {
  private:
   Epoll* m_epoll;
   GoContext* m_inWait;
-  GoContext* m_outWait;
+  GoContext* m_connWait;
   int m_fd;
+  bool m_sendFail;
   std::vector<uint8_t> m_writeBuffer;
 };
