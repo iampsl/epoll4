@@ -6,23 +6,21 @@
 #include "tcpsocket.h"
 
 void NewConnect(GoContext& ctx, int s) {
-  std::shared_ptr<TcpSocket> ptcp = std::make_shared<TcpSocket>(ctx.GetEpoll());
-  if (auto err = ptcp->Open(s)) {
+  TcpSocket ptcp(ctx.GetEpoll());
+  if (auto err = ptcp.Open(s)) {
     std::cout << strerror(err) << std::endl;
     return;
   }
   uint8_t pbuffer[1024];
   size_t nread = 0;
   ErrNo err = 0;
-  std::tie(nread, err) = ptcp->Read(&ctx, pbuffer, sizeof(pbuffer));
+  std::tie(nread, err) = ptcp.Read(&ctx, pbuffer, sizeof(pbuffer));
   if (err != 0) {
-    ptcp->Close();
     std::cout << strerror(err) << std::endl;
     return;
   }
   std::cout << nread << std::endl;
-  ptcp->Write(pbuffer, nread);
-  ptcp->Close();
+  ptcp.Write(pbuffer, nread);
 }
 
 void accept(GoContext& ctx) {

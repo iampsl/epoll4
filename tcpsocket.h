@@ -5,8 +5,7 @@
 
 #include "epoll.h"
 
-class AcceptSocket : public INotify,
-                     public std::enable_shared_from_this<AcceptSocket> {
+class AcceptSocket : public INotify {
  public:
   AcceptSocket(Epoll* e);
   ~AcceptSocket();
@@ -26,8 +25,7 @@ class AcceptSocket : public INotify,
   int m_fd;
 };
 
-class TcpSocket : public INotify,
-                  public std::enable_shared_from_this<TcpSocket> {
+class TcpSocket : public INotify {
  public:
   TcpSocket(Epoll* e);
   ~TcpSocket();

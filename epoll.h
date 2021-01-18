@@ -5,8 +5,7 @@
 #include <boost/coroutine2/all.hpp>
 #include <functional>
 #include <list>
-#include <memory>
-#include <unordered_map>
+#include <unordered_set>
 
 typedef int ErrNo;
 
@@ -40,7 +39,7 @@ class GoChan {
  public:
   GoChan(Epoll *e);
   void Add(GoContext *ctx);
-  void Wake();
+  bool Wake();
   Epoll *GetEpoll();
 
  private:
@@ -59,8 +58,9 @@ class Epoll {
   void Go(std::function<void(GoContext &)> func);
 
  private:
-  ErrNo add(int s, std::shared_ptr<INotify> pnotify);
+  ErrNo add(int s, INotify *pnotify);
   void del(INotify *pnotify);
+  bool exist(INotify *pnotify);
   void push(std::function<void()> func);
   void release(GoContext *pctx);
   void sleep(GoContext *pctx, unsigned int s);
@@ -78,9 +78,9 @@ class Epoll {
  private:
   int m_epollFd;
   GoContext *m_del;
-  std::unordered_map<INotify *, std::shared_ptr<INotify>> m_notifies;
+  std::unordered_set<INotify *> m_notifies;
   std::list<std::function<void()>> m_funcs;
-  epoll_event m_events[10000];
+  epoll_event m_events[1000];
 
   time_t m_baseTime;
   size_t m_timeIndex;

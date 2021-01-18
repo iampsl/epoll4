@@ -66,11 +66,10 @@ ErrNo AcceptSocket::Listen(int backlog) {
   if (iset != 0) {
     return iset;
   }
-  return m_epoll->add(m_fd, shared_from_this());
+  return m_epoll->add(m_fd, this);
 }
 
 std::tuple<int, ErrNo> AcceptSocket::Accept(GoContext* ctx) {
-  assert(m_inWait == nullptr);
   while (true) {
     int s = accept(m_fd, nullptr, nullptr);
     if (s != -1) {
@@ -128,7 +127,7 @@ ErrNo TcpSocket::Open() {
     return iset;
   }
   m_fd = fd;
-  return m_epoll->add(m_fd, shared_from_this());
+  return m_epoll->add(m_fd, this);
 }
 
 ErrNo TcpSocket::Open(int fd) {
@@ -138,7 +137,7 @@ ErrNo TcpSocket::Open(int fd) {
     return iset;
   }
   m_fd = fd;
-  return m_epoll->add(m_fd, shared_from_this());
+  return m_epoll->add(m_fd, this);
 }
 
 ErrNo TcpSocket::Connect(GoContext* ctx, const char* szip, uint16_t port) {

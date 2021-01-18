@@ -36,13 +36,14 @@ void GoChan::Add(GoContext *ctx) {
   ctx->Out();
 }
 
-void GoChan::Wake() {
+bool GoChan::Wake() {
   if (m_ctxs.empty()) {
-    return;
+    return false;
   }
   GoContext *ctx = m_ctxs.front();
   m_ctxs.pop_front();
   m_epoll->push([ctx]() { ctx->In(); });
+  return true;
 }
 
 Epoll *GoChan::GetEpoll() { return m_epoll; }
@@ -71,24 +72,25 @@ ErrNo Epoll::Create() {
   return 0;
 }
 
-ErrNo Epoll::add(int s, std::shared_ptr<INotify> pnotify) {
+ErrNo Epoll::add(int s, INotify *pnotify) {
   epoll_event e;
   e.events = EPOLLIN | EPOLLOUT | EPOLLET;
-  e.data.ptr = pnotify.get();
+  e.data.ptr = pnotify;
   int ictl = epoll_ctl(m_epollFd, EPOLL_CTL_ADD, s, &e);
   if (0 != ictl) {
     return errno;
   }
-  m_notifies.insert(std::make_pair(pnotify.get(), std::move(pnotify)));
+  m_notifies.insert(pnotify);
   return 0;
 }
 
-void Epoll::del(INotify *pnotify) {
-  auto iter = m_notifies.find(pnotify);
-  if (iter == m_notifies.end()) {
-    return;
+void Epoll::del(INotify *pnotify) { m_notifies.erase(pnotify); }
+
+bool Epoll::exist(INotify *pnotify) {
+  if (m_notifies.find(pnotify) == m_notifies.end()) {
+    return false;
   }
-  m_notifies.erase(iter);
+  return true;
 }
 
 void Epoll::push(std::function<void()> func) {
@@ -116,15 +118,15 @@ ErrNo Epoll::Wait(int ms) {
   }
   for (int i = 0; i < iwait; i++) {
     INotify *ptmpNotify = reinterpret_cast<INotify *>(m_events[i].data.ptr);
-    auto iter = m_notifies.find(ptmpNotify);
-    if (iter == m_notifies.end()) {
-      continue;
-    }
     if (m_events[i].events & EPOLLOUT) {
-      iter->second->OnOut();
+      if (exist(ptmpNotify)) {
+        ptmpNotify->OnOut();
+      }
     }
     if (m_events[i].events != EPOLLOUT) {
-      iter->second->OnIn();
+      if (exist(ptmpNotify)) {
+        ptmpNotify->OnIn();
+      }
     }
   }
   return 0;
