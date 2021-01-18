@@ -3,7 +3,6 @@
 
 使用boost.Coroutine2对epoll系统调用的简单封装
 
-test目录是用golang写的ping-pong压测客户端
 
 使用说明
 
@@ -14,9 +13,9 @@ test目录是用golang写的ping-pong压测客户端
 
 进入boost代码目录(比如boost_1_70_0)，先执行./bootstrap.sh 生成编译boost库工具,然后执行
 
-./b2 --with-context variant=release optimization=speed link=static threading=multi runtime-link=shared stage
+./b2 --with-context variant=release optimization=speed link=shared threading=multi runtime-link=shared stage
 
-在stage目录会生成静态库
+在stage目录会生成动态库
 3.编译本项目
 
 进入epoll3/epoll2/build/linux/debug目录，修改makefile文件中的如下二项为你所编译的boost库目录
