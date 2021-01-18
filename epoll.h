@@ -6,6 +6,7 @@
 #include <functional>
 #include <list>
 #include <unordered_set>
+#include <vector>
 
 typedef int ErrNo;
 
@@ -79,10 +80,10 @@ class Epoll {
   int m_epollFd;
   GoContext *m_del;
   std::unordered_set<INotify *> m_notifies;
-  std::list<std::function<void()>> m_funcs;
+  std::vector<std::function<void()>> m_funcs;
   epoll_event m_events[1000];
 
   time_t m_baseTime;
   size_t m_timeIndex;
-  std::list<GoContext *> m_timeWheel[60];
+  std::vector<GoContext *> m_timeWheel[60];
 };

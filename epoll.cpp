@@ -105,10 +105,12 @@ void Epoll::Go(std::function<void(GoContext &)> func) {
 
 ErrNo Epoll::Wait(int ms) {
   onTime();
-  while (!m_funcs.empty()) {
-    (m_funcs.front())();
-    m_funcs.pop_front();
+  decltype(m_funcs.size()) i = 0;
+  while (i < m_funcs.size()) {
+    (m_funcs[i])();
+    ++i;
   }
+  m_funcs.clear();
   int iwait = epoll_wait(m_epollFd, m_events,
                          sizeof(m_events) / sizeof(m_events[0]), ms);
   if (iwait < 0) {
