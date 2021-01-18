@@ -21,13 +21,13 @@ class GoContext {
  public:
   void Out();
   void In();
-  void Sleep(int ms);
+  void Sleep(unsigned int s);
   Epoll *GetEpoll();
 
  private:
+  friend Epoll;
   friend void goimpl(GoContext *pctx, std::function<void(GoContext &)> func,
                      boost::coroutines2::coroutine<void>::pull_type &pull);
-  friend Epoll;
   GoContext(Epoll *e, std::function<void(GoContext &)> func);
 
  private:
@@ -38,13 +38,10 @@ class GoContext {
 
 class GoChan {
  public:
+  GoChan(Epoll *e);
   void Add(GoContext *ctx);
   void Wake();
   Epoll *GetEpoll();
-
- private:
-  GoChan(Epoll *e);
-  friend Epoll;
 
  private:
   Epoll *m_epoll;
@@ -60,18 +57,21 @@ class Epoll {
   ErrNo Create();
   ErrNo Wait(int ms);
   void Go(std::function<void(GoContext &)> func);
-  std::shared_ptr<GoChan> Chan();
 
  private:
   ErrNo add(int s, std::shared_ptr<INotify> pnotify);
   void del(INotify *pnotify);
   void push(std::function<void()> func);
   void release(GoContext *pctx);
+  void sleep(GoContext *pctx, unsigned int s);
+  void tick();
+  void onTime();
 
  private:
   friend class AcceptSocket;
   friend class TcpSocket;
   friend GoChan;
+  friend GoContext;
   friend void goimpl(GoContext *pctx, std::function<void(GoContext &)> func,
                      boost::coroutines2::coroutine<void>::pull_type &pull);
 
@@ -81,4 +81,8 @@ class Epoll {
   std::unordered_map<INotify *, std::shared_ptr<INotify>> m_notifies;
   std::list<std::function<void()>> m_funcs;
   epoll_event m_events[10000];
+
+  time_t m_baseTime;
+  size_t m_timeIndex;
+  std::list<GoContext *> m_timeWheel[60];
 };

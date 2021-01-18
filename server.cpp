@@ -1,10 +1,29 @@
 #include "server.h"
 
-#include <string.h>
-
+#include <cstring>
 #include <iostream>
 
 #include "tcpsocket.h"
+
+void NewConnect(GoContext& ctx, int s) {
+  std::shared_ptr<TcpSocket> ptcp = std::make_shared<TcpSocket>(ctx.GetEpoll());
+  if (auto err = ptcp->Open(s)) {
+    std::cout << strerror(err) << std::endl;
+    return;
+  }
+  uint8_t pbuffer[1024];
+  size_t nread = 0;
+  ErrNo err = 0;
+  std::tie(nread, err) = ptcp->Read(&ctx, pbuffer, sizeof(pbuffer));
+  if (err != 0) {
+    ptcp->Close();
+    std::cout << strerror(err) << std::endl;
+    return;
+  }
+  std::cout << nread << std::endl;
+  ptcp->Write(pbuffer, nread);
+  ptcp->Close();
+}
 
 void accept(GoContext& ctx) {
   std::shared_ptr<AcceptSocket> paccept =
@@ -23,8 +42,7 @@ void accept(GoContext& ctx) {
       std::cout << strerror(err) << std::endl;
       continue;
     }
-    std::cout << "accept a new socket" << std::endl;
-    close(newsocket);
+    ctx.GetEpoll()->Go(std::bind(NewConnect, std::placeholders::_1, newsocket));
   }
 }
 

@@ -1,15 +1,16 @@
 #include "tcpsocket.h"
 
 #include <arpa/inet.h>
-#include <errno.h>
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
-#include <stdio.h>
-#include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
+
+#include <cerrno>
+#include <cstdio>
+#include <cstring>
 
 ErrNo SetNoblock(int fd) {
   int iflag = fcntl(fd, F_GETFL, 0);

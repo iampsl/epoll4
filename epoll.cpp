@@ -1,7 +1,9 @@
 #include "epoll.h"
 
-#include <errno.h>
 #include <unistd.h>
+
+#include <cerrno>
+#include <ctime>
 
 void goimpl(GoContext *pctx, std::function<void(GoContext &)> func,
             boost::coroutines2::coroutine<void>::pull_type &pull) {
@@ -23,9 +25,7 @@ void GoContext::Out() { (*m_yield)(); }
 
 void GoContext::In() { m_self(); }
 
-void GoContext::Sleep(int ms) {
-  //协程sleep一段时间
-}
+void GoContext::Sleep(unsigned int s) { m_epoll->sleep(this, s); }
 
 Epoll *GoContext::GetEpoll() { return m_epoll; }
 
@@ -50,6 +50,8 @@ Epoll *GoChan::GetEpoll() { return m_epoll; }
 Epoll::Epoll() {
   m_epollFd = -1;
   m_del = nullptr;
+  time(&m_baseTime);
+  m_timeIndex = 0;
 }
 
 Epoll::~Epoll() {
@@ -99,6 +101,7 @@ void Epoll::Go(std::function<void(GoContext &)> func) {
 }
 
 ErrNo Epoll::Wait(int ms) {
+  onTime();
   while (!m_funcs.empty()) {
     (m_funcs.front())();
     m_funcs.pop_front();
@@ -109,7 +112,6 @@ ErrNo Epoll::Wait(int ms) {
     return errno;
   }
   if (iwait == 0) {
-    //超时处理
     return 0;
   }
   for (int i = 0; i < iwait; i++) {
@@ -135,6 +137,39 @@ void Epoll::release(GoContext *pctx) {
   m_del = pctx;
 }
 
-std::shared_ptr<GoChan> Epoll::Chan() {
-  return std::shared_ptr<GoChan>(new GoChan(this));
+void Epoll::onTime() {
+  time_t now;
+  time(&now);
+  auto sub = now - m_baseTime;
+  if (sub <= 0) {
+    return;
+  }
+  m_baseTime = now;
+  for (decltype(sub) i = 0; i < sub; i++) {
+    tick();
+  }
+}
+
+void Epoll::tick() {
+  const auto MaxSleep = sizeof(m_timeWheel) / sizeof(m_timeWheel[0]);
+  m_timeIndex = (m_timeIndex + 1) % MaxSleep;
+  if (m_timeWheel[m_timeIndex].empty()) {
+    return;
+  }
+  for (auto v : m_timeWheel[m_timeIndex]) {
+    push([ctx = v]() { ctx->In(); });
+  }
+  m_timeWheel[m_timeIndex].clear();
+}
+
+void Epoll::sleep(GoContext *pctx, unsigned int s) {
+  if (s <= 0) {
+    return;
+  }
+  const auto MaxSleep = sizeof(m_timeWheel) / sizeof(m_timeWheel[0]);
+  if (s > MaxSleep) {
+    s = MaxSleep;
+  }
+  m_timeWheel[(m_timeIndex + s) % MaxSleep].push_back(pctx);
+  pctx->Out();
 }
