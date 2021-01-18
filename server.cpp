@@ -44,9 +44,18 @@ void accept(GoContext& ctx) {
   }
 }
 
+void timer(GoContext& ctx) {
+  while (true) {
+    ctx.Sleep(1);
+  }
+}
+
 void server::Start() {
   m_epoll.Create();
   m_epoll.Go(accept);
+  for (unsigned int i = 0; i < 200000; i++) {
+    m_epoll.Go(timer);
+  }
   while (true) {
     m_epoll.Wait(100);
   }

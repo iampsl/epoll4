@@ -16,7 +16,8 @@ void goimpl(GoContext *pctx, std::function<void(GoContext &)> func,
 }
 
 GoContext::GoContext(Epoll *e, std::function<void(GoContext &)> func)
-    : m_self(std::bind(goimpl, this, std::move(func), std::placeholders::_1)) {
+    : m_self(boost::coroutines2::fixedsize_stack(1024 * 1024 * 8),
+             std::bind(goimpl, this, std::move(func), std::placeholders::_1)) {
   m_epoll = e;
   m_yield = nullptr;
 }
