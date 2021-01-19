@@ -5,6 +5,8 @@
 
 #include "tcpsocket.h"
 
+const uint16_t port = 8888;
+
 void NewConnect(GoContext& ctx, int s) {
   TcpSocket ptcp(ctx.GetEpoll());
   if (auto err = ptcp.Open(s)) {
@@ -14,26 +16,39 @@ void NewConnect(GoContext& ctx, int s) {
   uint8_t pbuffer[1024];
   size_t nread = 0;
   ErrNo err = 0;
-  std::tie(nread, err) = ptcp.Read(&ctx, pbuffer, sizeof(pbuffer));
-  if (err != 0) {
-    std::cout << strerror(err) << std::endl;
-    return;
+  while (true) {
+    std::tie(nread, err) = ptcp.Read(&ctx, pbuffer, sizeof(pbuffer));
+    if (err != 0) {
+      std::cout << strerror(err) << std::endl;
+      return;
+    }
+    ptcp.Write(pbuffer, nread);
   }
-  std::cout << nread << std::endl;
-  ptcp.Write(pbuffer, nread);
 }
 
 void accept(GoContext& ctx) {
   std::shared_ptr<AcceptSocket> paccept =
       std::make_shared<AcceptSocket>(ctx.GetEpoll());
-  paccept->Open();
-  paccept->Bind("0.0.0.0", 35555);
-  paccept->Listen(0);
+  ErrNo err = paccept->Open();
+  if (err) {
+    std::cout << strerror(err) << std::endl;
+    return;
+  }
+  err = paccept->Bind("0.0.0.0", port);
+  if (err) {
+    std::cout << strerror(err) << std::endl;
+    return;
+  }
+  err = paccept->Listen(1024);
+  if (err) {
+    std::cout << strerror(err) << std::endl;
+    return;
+  }
   int newsocket;
-  ErrNo err;
   while (true) {
     std::tie(newsocket, err) = paccept->Accept(&ctx);
     if (err == EINVAL) {
+      std::cout << strerror(err) << std::endl;
       break;
     }
     if (err != 0) {
@@ -50,13 +65,43 @@ void timer(GoContext& ctx) {
   }
 }
 
+void client(GoContext& ctx) {
+  TcpSocket tcps(ctx.GetEpoll());
+  ErrNo err = tcps.Open();
+  if (err) {
+    std::cout << strerror(err) << std::endl;
+    return;
+  }
+  err = tcps.Connect(&ctx, "127.0.0.1", port);
+  if (err) {
+    std::cout << strerror(err) << std::endl;
+    return;
+  }
+  const char* pstr = "hello world";
+  char readBuffer[1024];
+  while (true) {
+    ctx.Sleep(1);
+    tcps.Write(pstr, strlen(pstr));
+    size_t nread = 0;
+    ErrNo err;
+    std::tie(nread, err) = tcps.Read(&ctx, readBuffer, sizeof(readBuffer));
+    if (err) {
+      std::cout << strerror(err) << std::endl;
+      break;
+    }
+  }
+}
+
 void server::Start() {
   m_epoll.Create();
   m_epoll.Go(accept);
-  for (unsigned int i = 0; i < 200000; i++) {
+  for (unsigned int i = 0; i < 200; i++) {
     m_epoll.Go(timer);
   }
+  for (unsigned int i = 0; i < 20000; i++) {
+    m_epoll.Go(client);
+  }
   while (true) {
-    m_epoll.Wait(100);
+    m_epoll.Wait(1000);
   }
 }
