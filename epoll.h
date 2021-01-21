@@ -39,13 +39,13 @@ class GoContext {
 class GoChan {
  public:
   GoChan(Epoll *e);
-  void Add(GoContext *ctx);
+  void Wait(GoContext *ctx);
   bool Wake();
   Epoll *GetEpoll();
 
  private:
   Epoll *m_epoll;
-  std::list<GoContext *> m_ctxs;
+  GoContext *m_wait;
 };
 
 class Epoll {

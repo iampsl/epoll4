@@ -30,19 +30,22 @@ void GoContext::Sleep(unsigned int s) { m_epoll->sleep(this, s); }
 
 Epoll *GoContext::GetEpoll() { return m_epoll; }
 
-GoChan::GoChan(Epoll *e) { m_epoll = e; }
+GoChan::GoChan(Epoll *e) {
+  m_epoll = e;
+  m_wait = nullptr;
+}
 
-void GoChan::Add(GoContext *ctx) {
-  m_ctxs.push_back(ctx);
+void GoChan::Wait(GoContext *ctx) {
+  m_wait = ctx;
   ctx->Out();
 }
 
 bool GoChan::Wake() {
-  if (m_ctxs.empty()) {
+  if (m_wait == nullptr) {
     return false;
   }
-  GoContext *ctx = m_ctxs.front();
-  m_ctxs.pop_front();
+  auto ctx = m_wait;
+  m_wait = nullptr;
   m_epoll->push([ctx]() { ctx->In(); });
   return true;
 }
