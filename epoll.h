@@ -11,45 +11,45 @@
 typedef int ErrNo;
 
 class INotify {
- public:
+public:
   virtual void OnIn() = 0;
   virtual void OnOut() = 0;
 };
 
 class Epoll;
 class GoContext {
- public:
+public:
   void Out();
   void In();
   void Sleep(unsigned int s);
   Epoll *GetEpoll();
 
- private:
+private:
   friend Epoll;
   friend void goimpl(GoContext *pctx, std::function<void(GoContext &)> func,
                      boost::coroutines2::coroutine<void>::pull_type &pull);
   GoContext(Epoll *e, std::function<void(GoContext &)> func);
 
- private:
+private:
   Epoll *m_epoll;
   boost::coroutines2::coroutine<void>::push_type m_self;
   boost::coroutines2::coroutine<void>::pull_type *m_yield;
 };
 
 class GoChan {
- public:
+public:
   GoChan(Epoll *e);
   void Wait(GoContext *ctx);
   bool Wake();
   Epoll *GetEpoll();
 
- private:
+private:
   Epoll *m_epoll;
   GoContext *m_wait;
 };
 
 class Epoll {
- public:
+public:
   Epoll();
   Epoll(const Epoll &) = delete;
   Epoll &operator=(const Epoll &) = delete;
@@ -58,7 +58,7 @@ class Epoll {
   ErrNo Wait(int ms);
   void Go(std::function<void(GoContext &)> func);
 
- private:
+private:
   ErrNo add(int s, INotify *pnotify);
   void del(INotify *pnotify);
   bool exist(INotify *pnotify);
@@ -68,15 +68,16 @@ class Epoll {
   void tick();
   void onTime();
 
- private:
+private:
   friend class AcceptSocket;
   friend class TcpSocket;
+  friend class UdpSocket;
   friend GoChan;
   friend GoContext;
   friend void goimpl(GoContext *pctx, std::function<void(GoContext &)> func,
                      boost::coroutines2::coroutine<void>::pull_type &pull);
 
- private:
+private:
   int m_epollFd;
   GoContext *m_del;
   std::unordered_set<INotify *> m_notifies;

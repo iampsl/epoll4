@@ -271,3 +271,125 @@ void TcpSocket::OnOut() {
   memcpy(&(m_writeBuffer[0]), &(m_writeBuffer[total]), len - total);
   m_writeBuffer.resize(len - total);
 }
+
+UdpSocket::UdpSocket(Epoll *e) {
+  m_epoll = e;
+  m_inWait = nullptr;
+  m_fd = -1;
+}
+
+UdpSocket::~UdpSocket() { Close(); }
+
+ErrNo UdpSocket::Open() {
+  int fd = socket(AF_INET, SOCK_DGRAM, 0);
+  if (fd == -1) {
+    return errno;
+  }
+  int iset = SetNoblock(fd);
+  if (iset != 0) {
+    close(fd);
+    return iset;
+  }
+  m_fd = fd;
+  return m_epoll->add(m_fd, this);
+}
+
+ErrNo UdpSocket::Bind(const char *szip, uint16_t port) {
+  sockaddr_in addr;
+  memset(&addr, 0, sizeof(addr));
+  addr.sin_family = AF_INET;
+  addr.sin_addr.s_addr = inet_addr(szip);
+  addr.sin_port = htons(port);
+  int ibind = ::bind(m_fd, (const sockaddr *)(&addr), sizeof(addr));
+  if (-1 == ibind) {
+    return errno;
+  }
+  return 0;
+}
+
+std::tuple<size_t, ErrNo> UdpSocket::Recvfrom(GoContext *ctx, void *buf,
+                                              size_t len,
+                                              sockaddr_in &srcAddr) {
+  socklen_t addrLen = sizeof(srcAddr);
+  while (true) {
+    auto irecv = recvfrom(m_fd, buf, len, 0, (sockaddr *)(&srcAddr), &addrLen);
+    if (irecv >= 0) {
+      return std::make_tuple<size_t, ErrNo>(size_t(irecv), 0);
+    }
+    if (errno != EAGAIN && errno != EWOULDBLOCK) {
+      return std::make_tuple<size_t, ErrNo>(size_t(0), ErrNo(errno));
+    }
+    m_inWait = ctx;
+    ctx->Out();
+    m_inWait = nullptr;
+  }
+}
+void UdpSocket::Sendto(const void *buf, size_t len, sockaddr_in &dstAddr) {
+  if (len == 0 || buf == nullptr) {
+    return;
+  }
+  auto size = m_writeBuffer.size();
+  if (size != 0) {
+    m_writeBuffer.resize(size + sizeof(dstAddr) + sizeof(len) + len);
+    *((sockaddr_in *)(&(m_writeBuffer[len]))) = dstAddr;
+    *((size_t *)(&(m_writeBuffer[size + sizeof(dstAddr)]))) = len;
+    memcpy(&(m_writeBuffer[size + sizeof(dstAddr) + sizeof(len)]), buf, len);
+    return;
+  }
+  auto isend = sendto(m_fd, buf, len, 0, (sockaddr *)(&dstAddr),
+                      socklen_t(sizeof(dstAddr)));
+  if (isend != -1) {
+    return;
+  }
+  if (errno != EAGAIN && errno != EWOULDBLOCK) {
+    return;
+  }
+  m_writeBuffer.resize(sizeof(dstAddr) + sizeof(len) + len);
+  *((sockaddr_in *)(&(m_writeBuffer[0]))) = dstAddr;
+  *((size_t *)(&(m_writeBuffer[sizeof(dstAddr)]))) = len;
+  memcpy(&(m_writeBuffer[sizeof(dstAddr) + sizeof(len)]), buf, len);
+}
+void UdpSocket::Close() {
+  if (-1 == m_fd) {
+    return;
+  }
+  m_epoll->del(this);
+  close(m_fd);
+  m_fd = -1;
+  if (m_inWait == nullptr) {
+    return;
+  }
+  m_epoll->push([wait = m_inWait]() { wait->In(); });
+}
+
+void UdpSocket::OnIn() {
+  if (m_inWait == nullptr) {
+    return;
+  }
+  m_inWait->In();
+}
+
+void UdpSocket::OnOut() {
+  auto size = m_writeBuffer.size();
+  if (size == 0) {
+    return;
+  }
+  size_t total = 0;
+  while (total != size) {
+    sockaddr_in *paddr = (sockaddr_in *)(&(m_writeBuffer[total]));
+    size_t *plen = (size_t *)(paddr + 1);
+    void *pdata = plen + 1;
+    auto isend = sendto(m_fd, pdata, *plen, 0, (const sockaddr *)paddr,
+                        (socklen_t)(sizeof(*paddr)));
+    if (isend == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+      break;
+    }
+    total += sizeof(*paddr) + sizeof(*plen) + *plen;
+  }
+  if (total == size) {
+    m_writeBuffer.clear();
+    return;
+  }
+  memcpy(&(m_writeBuffer[0]), &(m_writeBuffer[total]), size - total);
+  m_writeBuffer.resize(size - total);
+}

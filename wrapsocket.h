@@ -8,6 +8,8 @@
 class AcceptSocket : public INotify {
 public:
   AcceptSocket(Epoll *e);
+  AcceptSocket(const AcceptSocket &) = delete;
+  AcceptSocket &operator=(const AcceptSocket &) = delete;
   ~AcceptSocket();
   ErrNo Open();
   ErrNo Bind(const char *szip, uint16_t port);
@@ -28,6 +30,8 @@ private:
 class TcpSocket : public INotify {
 public:
   TcpSocket(Epoll *e);
+  TcpSocket(const TcpSocket &) = delete;
+  TcpSocket &operator=(const TcpSocket &) = delete;
   ~TcpSocket();
   ErrNo Open(int fd);
   ErrNo Open();
@@ -52,13 +56,19 @@ private:
 class UdpSocket : public INotify {
 public:
   UdpSocket(Epoll *e);
+  UdpSocket(const UdpSocket &) = delete;
+  UdpSocket &operator=(const UdpSocket &) = delete;
   ~UdpSocket();
   ErrNo Open();
   ErrNo Bind(const char *szip, uint16_t port);
-  std::tuple<size_t, ErrNo> Recvfrom(void *buf, size_t len,
+  std::tuple<size_t, ErrNo> Recvfrom(GoContext *ctx, void *buf, size_t len,
                                      sockaddr_in &srcAddr);
   void Sendto(const void *buf, size_t len, sockaddr_in &dstAddr);
   void Close();
+
+private:
+  virtual void OnIn() override;
+  virtual void OnOut() override;
 
 private:
   Epoll *m_epoll;
