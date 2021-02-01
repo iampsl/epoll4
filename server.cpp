@@ -95,7 +95,7 @@ void client(GoContext &ctx) {
 void udpserver(GoContext &ctx) {
   UdpSocket s(ctx.GetEpoll());
   s.Open();
-  s.Bind("0.0.0.0", 7777);
+  s.Bind("192.168.181.128", 7777);
   uint8_t buffer[1024];
   sockaddr_in addr;
   while (true) {
@@ -114,7 +114,7 @@ void udpclient(GoContext &ctx) {
   UdpSocket s(ctx.GetEpoll());
   s.Open();
   sockaddr_in dst;
-  SockAddr(dst, "0.0.0.0", 7777);
+  SockAddr(dst, "192.168.181.128", 7777);
   uint8_t buffer[512];
   while (true) {
     s.Sendto(buffer, sizeof(buffer), dst);
@@ -125,7 +125,7 @@ void udpclient(GoContext &ctx) {
 void server::Start() {
   m_epoll.Create();
   m_epoll.Go(udpserver);
-  for (int i = 0; i < 30000; i++) {
+  for (int i = 0; i < 3000; i++) {
     m_epoll.Go(udpclient);
   }
   while (true) {

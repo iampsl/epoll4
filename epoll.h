@@ -82,7 +82,7 @@ private:
   GoContext *m_del;
   std::unordered_set<INotify *> m_notifies;
   std::vector<std::function<void()>> m_funcs;
-  epoll_event m_events[1000];
+  epoll_event m_events[10000];
 
   time_t m_baseTime;
   size_t m_timeIndex;
