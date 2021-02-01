@@ -24,6 +24,13 @@ ErrNo SetNoblock(int fd) {
   return 0;
 }
 
+void SockAddr(sockaddr_in &addr, const char *szip, uint16_t port) {
+  memset(&addr, 0, sizeof(addr));
+  addr.sin_family = AF_INET;
+  addr.sin_addr.s_addr = inet_addr(szip);
+  addr.sin_port = htons(port);
+}
+
 AcceptSocket::AcceptSocket(Epoll *e) {
   m_epoll = e;
   m_fd = -1;

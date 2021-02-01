@@ -5,6 +5,8 @@
 #include <tuple>
 #include <vector>
 
+void SockAddr(sockaddr_in &addr, const char *szip, uint16_t port);
+
 class AcceptSocket : public INotify {
 public:
   AcceptSocket(Epoll *e);

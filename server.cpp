@@ -92,14 +92,41 @@ void client(GoContext &ctx) {
   }
 }
 
+void udpserver(GoContext &ctx) {
+  UdpSocket s(ctx.GetEpoll());
+  s.Open();
+  s.Bind("0.0.0.0", 7777);
+  uint8_t buffer[1024];
+  sockaddr_in addr;
+  while (true) {
+    size_t recvBytes = 0;
+    ErrNo err = 0;
+    std::tie(recvBytes, err) = s.Recvfrom(&ctx, buffer, sizeof(buffer), addr);
+    if (err) {
+      std::cout << strerror(err) << std::endl;
+    } else {
+      // std::cout << "recvfrom:" << recvBytes << std::endl;
+    }
+  }
+}
+
+void udpclient(GoContext &ctx) {
+  UdpSocket s(ctx.GetEpoll());
+  s.Open();
+  sockaddr_in dst;
+  SockAddr(dst, "0.0.0.0", 7777);
+  uint8_t buffer[512];
+  while (true) {
+    s.Sendto(buffer, sizeof(buffer), dst);
+    ctx.Sleep(1);
+  }
+}
+
 void server::Start() {
   m_epoll.Create();
-  m_epoll.Go(Accept);
-  for (unsigned int i = 0; i < 200; i++) {
-    m_epoll.Go(timer);
-  }
-  for (unsigned int i = 0; i < 10000; i++) {
-    m_epoll.Go(client);
+  m_epoll.Go(udpserver);
+  for (int i = 0; i < 30000; i++) {
+    m_epoll.Go(udpclient);
   }
   while (true) {
     m_epoll.Wait(1000);
