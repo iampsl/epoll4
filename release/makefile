@@ -14,7 +14,7 @@ TEMP=./objs/
 CC=g++
 
 #编译选项
-COMPLIE_FLAGS=-Wall -O2 -c -std=c++11 -DNDEBUG
+COMPLIE_FLAGS=-Wall -O2 -c -std=c++14 -DNDEBUG
 
 #连接选项
 LINK_FLAGS=-Wl,-rpath,'$$ORIGIN'
@@ -26,7 +26,7 @@ HEAD_DIR=-I/usr/local/boost_1_75_0/
 LIB_DIR=-L/usr/local/boost_1_75_0/stage/lib
 
 #库文件
-LIB=-lboost_context -lboost_thread -lboost_chrono
+LIB=-lboost_context 
 
 #依赖其它工程库文件
 PROJECT_LIB=
