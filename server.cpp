@@ -3,11 +3,11 @@
 #include <cstring>
 #include <iostream>
 
-#include "tcpsocket.h"
+#include "wrapsocket.h"
 
 const uint16_t port = 8888;
 
-void NewConnect(GoContext& ctx, int s) {
+void NewConnect(GoContext &ctx, int s) {
   TcpSocket ptcp(ctx.GetEpoll());
   if (auto err = ptcp.Open(s)) {
     std::cout << strerror(err) << std::endl;
@@ -26,7 +26,7 @@ void NewConnect(GoContext& ctx, int s) {
   }
 }
 
-void accept(GoContext& ctx) {
+void Accept(GoContext &ctx) {
   std::shared_ptr<AcceptSocket> paccept =
       std::make_shared<AcceptSocket>(ctx.GetEpoll());
   ErrNo err = paccept->Open();
@@ -59,13 +59,13 @@ void accept(GoContext& ctx) {
   }
 }
 
-void timer(GoContext& ctx) {
+void timer(GoContext &ctx) {
   while (true) {
     ctx.Sleep(1);
   }
 }
 
-void client(GoContext& ctx) {
+void client(GoContext &ctx) {
   TcpSocket tcps(ctx.GetEpoll());
   ErrNo err = tcps.Open();
   if (err) {
@@ -77,10 +77,10 @@ void client(GoContext& ctx) {
     std::cout << strerror(err) << std::endl;
     return;
   }
-  const char* pstr = "hello world";
+  const char *pstr = "hello world";
   char readBuffer[1024];
   while (true) {
-    ctx.Sleep(1);
+    // ctx.Sleep(1);
     tcps.Write(pstr, strlen(pstr));
     size_t nread = 0;
     ErrNo err;
@@ -94,11 +94,11 @@ void client(GoContext& ctx) {
 
 void server::Start() {
   m_epoll.Create();
-  m_epoll.Go(accept);
+  m_epoll.Go(Accept);
   for (unsigned int i = 0; i < 200; i++) {
     m_epoll.Go(timer);
   }
-  for (unsigned int i = 0; i < 20000; i++) {
+  for (unsigned int i = 0; i < 10000; i++) {
     m_epoll.Go(client);
   }
   while (true) {

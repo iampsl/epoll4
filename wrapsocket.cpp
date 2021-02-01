@@ -1,4 +1,4 @@
-#include "tcpsocket.h"
+#include "wrapsocket.h"
 
 #include <arpa/inet.h>
 #include <fcntl.h>
@@ -24,7 +24,7 @@ ErrNo SetNoblock(int fd) {
   return 0;
 }
 
-AcceptSocket::AcceptSocket(Epoll* e) {
+AcceptSocket::AcceptSocket(Epoll *e) {
   m_epoll = e;
   m_fd = -1;
   m_inWait = nullptr;
@@ -41,13 +41,13 @@ ErrNo AcceptSocket::Open() {
   return 0;
 }
 
-ErrNo AcceptSocket::Bind(const char* szip, uint16_t port) {
+ErrNo AcceptSocket::Bind(const char *szip, uint16_t port) {
   sockaddr_in addr;
   memset(&addr, 0, sizeof(addr));
   addr.sin_family = AF_INET;
   addr.sin_addr.s_addr = inet_addr(szip);
   addr.sin_port = htons(port);
-  int ibind = ::bind(m_fd, (const sockaddr*)(&addr), sizeof(addr));
+  int ibind = ::bind(m_fd, (const sockaddr *)(&addr), sizeof(addr));
   if (-1 == ibind) {
     return errno;
   }
@@ -69,7 +69,7 @@ ErrNo AcceptSocket::Listen(int backlog) {
   return m_epoll->add(m_fd, this);
 }
 
-std::tuple<int, ErrNo> AcceptSocket::Accept(GoContext* ctx) {
+std::tuple<int, ErrNo> AcceptSocket::Accept(GoContext *ctx) {
   while (true) {
     int s = accept(m_fd, nullptr, nullptr);
     if (s != -1) {
@@ -106,7 +106,7 @@ void AcceptSocket::OnIn() {
 
 void AcceptSocket::OnOut() {}
 
-TcpSocket::TcpSocket(Epoll* e) {
+TcpSocket::TcpSocket(Epoll *e) {
   m_epoll = e;
   m_inWait = nullptr;
   m_connWait = nullptr;
@@ -140,13 +140,13 @@ ErrNo TcpSocket::Open(int fd) {
   return m_epoll->add(m_fd, this);
 }
 
-ErrNo TcpSocket::Connect(GoContext* ctx, const char* szip, uint16_t port) {
+ErrNo TcpSocket::Connect(GoContext *ctx, const char *szip, uint16_t port) {
   sockaddr_in addr;
   memset(&addr, 0, sizeof(addr));
   addr.sin_family = AF_INET;
   addr.sin_addr.s_addr = inet_addr(szip);
   addr.sin_port = htons(port);
-  int iconn = connect(m_fd, (const sockaddr*)(&addr), sizeof(addr));
+  int iconn = connect(m_fd, (const sockaddr *)(&addr), sizeof(addr));
   if (0 == iconn) {
     return 0;
   }
@@ -164,7 +164,7 @@ ErrNo TcpSocket::Connect(GoContext* ctx, const char* szip, uint16_t port) {
   return error;
 }
 
-void TcpSocket::Write(const void* buf, size_t nbytes) {
+void TcpSocket::Write(const void *buf, size_t nbytes) {
   if (m_sendFail) {
     return;
   }
@@ -179,7 +179,7 @@ void TcpSocket::Write(const void* buf, size_t nbytes) {
   }
   size_t total = 0;
   while (total != nbytes) {
-    auto isend = send(m_fd, (uint8_t*)buf + total, nbytes - total, 0);
+    auto isend = send(m_fd, (uint8_t *)buf + total, nbytes - total, 0);
     if (isend >= 0) {
       total += isend;
       continue;
@@ -194,10 +194,10 @@ void TcpSocket::Write(const void* buf, size_t nbytes) {
     return;
   }
   m_writeBuffer.resize(nbytes - total);
-  memcpy(&(m_writeBuffer[0]), (uint8_t*)buf + total, nbytes - total);
+  memcpy(&(m_writeBuffer[0]), (uint8_t *)buf + total, nbytes - total);
 }
 
-std::tuple<size_t, ErrNo> TcpSocket::Read(GoContext* ctx, void* buf,
+std::tuple<size_t, ErrNo> TcpSocket::Read(GoContext *ctx, void *buf,
                                           size_t nbytes) {
   while (true) {
     auto irecv = recv(m_fd, buf, nbytes, 0);
