@@ -24,7 +24,7 @@
 在stage目录会生成动态库
 # 3.编译本项目
 
-进入epoll3/epoll2/build/linux/debug目录，修改makefile文件中的如下二项为你所编译的boost库目录
+进入debug或release目录，修改makefile文件中的如下二项为你所编译的boost库目录
 
 库头文件目录
 
