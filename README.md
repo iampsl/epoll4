@@ -40,4 +40,4 @@ LIB_DIR=-L/home/iampsl/boost_1_70_0/stage/lib/
 # 4.例子
 可以参考server.cpp这个文件
 # 5.反馈
-邮件:iampsl@qq.com(潘胜良)
+邮箱:iampsl@qq.com(潘胜良)
