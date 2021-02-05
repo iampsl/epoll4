@@ -95,7 +95,7 @@ void AcceptSocket::Close() {
   if (-1 == m_fd) {
     return;
   }
-  m_epoll->del(this);
+  m_epoll->del(m_fd, this);
   close(m_fd);
   m_fd = -1;
   if (m_inWait == nullptr) {
@@ -224,7 +224,7 @@ void TcpSocket::Close() {
   if (-1 == m_fd) {
     return;
   }
-  m_epoll->del(this);
+  m_epoll->del(m_fd, this);
   close(m_fd);
   m_fd = -1;
   if (m_connWait != nullptr) {
@@ -360,7 +360,7 @@ void UdpSocket::Close() {
   if (-1 == m_fd) {
     return;
   }
-  m_epoll->del(this);
+  m_epoll->del(m_fd, this);
   close(m_fd);
   m_fd = -1;
   if (m_inWait == nullptr) {

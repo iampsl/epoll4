@@ -88,7 +88,12 @@ ErrNo Epoll::add(int s, INotify *pnotify) {
   return 0;
 }
 
-void Epoll::del(INotify *pnotify) { m_notifies.erase(pnotify); }
+void Epoll::del(int s, INotify *pnotify) {
+  if (0 == m_notifies.erase(pnotify)) {
+    return;
+  }
+  epoll_ctl(m_epollFd, EPOLL_CTL_DEL, s, NULL);
+}
 
 bool Epoll::exist(INotify *pnotify) {
   if (m_notifies.find(pnotify) == m_notifies.end()) {

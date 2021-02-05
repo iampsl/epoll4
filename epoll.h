@@ -60,7 +60,7 @@ public:
 
 private:
   ErrNo add(int s, INotify *pnotify);
-  void del(INotify *pnotify);
+  void del(int s, INotify *pnotify);
   bool exist(INotify *pnotify);
   void push(std::function<void()> func);
   void release(GoContext *pctx);
