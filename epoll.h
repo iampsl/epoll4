@@ -19,10 +19,10 @@ public:
 class Epoll;
 class GoContext {
 public:
-  void Out();
-  void In();
+  void Out() { (*m_yield)(); }
+  void In() { m_self(); }
   void Sleep(unsigned int s);
-  Epoll *GetEpoll();
+  Epoll *GetEpoll() { return m_epoll; }
 
 private:
   friend Epoll;
@@ -38,10 +38,16 @@ private:
 
 class GoChan {
 public:
-  GoChan(Epoll *e);
-  void Wait(GoContext *ctx);
+  GoChan(Epoll *e) {
+    m_epoll = e;
+    m_wait = nullptr;
+  }
+  void Wait(GoContext *ctx) {
+    m_wait = ctx;
+    ctx->Out();
+  }
   bool Wake();
-  Epoll *GetEpoll();
+  Epoll *GetEpoll() { return m_epoll; }
 
 private:
   Epoll *m_epoll;

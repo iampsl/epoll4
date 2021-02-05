@@ -8,10 +8,7 @@
 void goimpl(GoContext *pctx, std::function<void(GoContext &)> func,
             boost::coroutines2::coroutine<void>::pull_type &pull) {
   pctx->m_yield = &pull;
-  try {
-    func(*pctx);
-  } catch (...) {
-  }
+  func(*pctx);
   pctx->GetEpoll()->release(pctx);
 }
 
@@ -22,23 +19,7 @@ GoContext::GoContext(Epoll *e, std::function<void(GoContext &)> func)
   m_yield = nullptr;
 }
 
-void GoContext::Out() { (*m_yield)(); }
-
-void GoContext::In() { m_self(); }
-
 void GoContext::Sleep(unsigned int s) { m_epoll->sleep(this, s); }
-
-Epoll *GoContext::GetEpoll() { return m_epoll; }
-
-GoChan::GoChan(Epoll *e) {
-  m_epoll = e;
-  m_wait = nullptr;
-}
-
-void GoChan::Wait(GoContext *ctx) {
-  m_wait = ctx;
-  ctx->Out();
-}
 
 bool GoChan::Wake() {
   if (m_wait == nullptr) {
@@ -49,8 +30,6 @@ bool GoChan::Wake() {
   m_epoll->push([ctx]() { ctx->In(); });
   return true;
 }
-
-Epoll *GoChan::GetEpoll() { return m_epoll; }
 
 Epoll::Epoll() {
   m_epollFd = -1;
@@ -170,7 +149,7 @@ void Epoll::tick() {
     return;
   }
   for (auto v : m_timeWheel[m_timeIndex]) {
-    push([ctx = v]() { ctx->In(); });
+    push([v]() { v->In(); });
   }
   m_timeWheel[m_timeIndex].clear();
 }
