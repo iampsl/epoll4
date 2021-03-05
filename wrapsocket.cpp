@@ -87,7 +87,6 @@ std::tuple<int, ErrNo> AcceptSocket::Accept(GoContext *ctx) {
     }
     m_inWait = ctx;
     ctx->Out();
-    m_inWait = nullptr;
   }
 }
 
@@ -101,14 +100,18 @@ void AcceptSocket::Close() {
   if (m_inWait == nullptr) {
     return;
   }
-  m_epoll->push([wait = m_inWait]() { wait->In(); });
+  GoContext *tmpWait = m_inWait;
+  m_inWait = nullptr;
+  m_epoll->push([tmpWait]() { tmpWait->In(); });
 }
 
 void AcceptSocket::OnIn() {
   if (m_inWait == nullptr) {
     return;
   }
-  m_inWait->In();
+  GoContext *tmpWait = m_inWait;
+  m_inWait = nullptr;
+  tmpWait->In();
 }
 
 void AcceptSocket::OnOut() {}
