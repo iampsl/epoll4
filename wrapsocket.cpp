@@ -160,12 +160,11 @@ ErrNo TcpSocket::Connect(GoContext *ctx, const char *szip, uint16_t port) {
   if (0 == iconn) {
     return 0;
   }
-  if (errno != EINPROGRESS && errno != EAGAIN) {
+  if (errno != EINPROGRESS) {
     return errno;
   }
   m_connWait = ctx;
   ctx->Out();
-  m_connWait = nullptr;
   int error = 0;
   socklen_t length = sizeof(error);
   if (getsockopt(m_fd, SOL_SOCKET, SO_ERROR, &error, &length) != 0) {
@@ -219,7 +218,6 @@ std::tuple<size_t, ErrNo> TcpSocket::Read(GoContext *ctx, void *buf,
     }
     m_inWait = ctx;
     ctx->Out();
-    m_inWait = nullptr;
   }
 }
 
@@ -231,29 +229,36 @@ void TcpSocket::Close() {
   close(m_fd);
   m_fd = -1;
   if (m_connWait != nullptr) {
-    m_epoll->push([connWait = m_connWait]() { connWait->In(); });
-    return;
+    GoContext *tmpWait = m_connWait;
+    m_connWait = nullptr;
+    m_epoll->push([tmpWait]() { tmpWait->In(); });
   }
-  if (m_inWait == nullptr) {
-    return;
+  if (m_inWait != nullptr) {
+    GoContext *tmpWait = m_inWait;
+    m_inWait = nullptr;
+    m_epoll->push([tmpWait]() { tmpWait->In(); });
   }
-  m_epoll->push([wait = m_inWait]() { wait->In(); });
 }
 
 void TcpSocket::OnIn() {
   if (m_connWait != nullptr) {
-    m_connWait->In();
+    GoContext *tmpWait = m_connWait;
+    m_connWait = nullptr;
+    tmpWait->In();
     return;
   }
-  if (m_inWait == nullptr) {
-    return;
+  if (m_inWait != nullptr) {
+    GoContext *tmpWait = m_inWait;
+    m_inWait = nullptr;
+    tmpWait->In();
   }
-  m_inWait->In();
 }
 
 void TcpSocket::OnOut() {
   if (m_connWait != nullptr) {
-    m_connWait->In();
+    GoContext *tmpWait = m_connWait;
+    m_connWait = nullptr;
+    tmpWait->In();
     return;
   }
   auto len = m_writeBuffer.size();
