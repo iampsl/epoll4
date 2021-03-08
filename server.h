@@ -4,7 +4,7 @@
 
 class server {
  public:
-  void Start();
+  void Start(int num);
 
  private:
   Epoll m_epoll;
