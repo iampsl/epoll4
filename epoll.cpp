@@ -101,7 +101,11 @@ ErrNo Epoll::Wait(int ms) {
   int iwait = epoll_wait(m_epollFd, m_events,
                          sizeof(m_events) / sizeof(m_events[0]), ms);
   if (iwait < 0) {
-    return errno;
+    int err = errno;
+    if (err == EINTR) {
+      return 0;
+    }
+    return err;
   }
   if (iwait == 0) {
     return 0;

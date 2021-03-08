@@ -82,8 +82,9 @@ std::tuple<int, ErrNo> AcceptSocket::Accept(GoContext *ctx) {
     if (s != -1) {
       return std::make_tuple(s, 0);
     }
-    if (errno != EAGAIN) {
-      return std::make_tuple(-1, errno);
+    int err = errno;
+    if (err != EAGAIN) {
+      return std::make_tuple(-1, err);
     }
     m_inWait = ctx;
     ctx->Out();
@@ -160,8 +161,9 @@ ErrNo TcpSocket::Connect(GoContext *ctx, const char *szip, uint16_t port) {
   if (0 == iconn) {
     return 0;
   }
-  if (errno != EINPROGRESS) {
-    return errno;
+  int err = errno;
+  if (err != EINPROGRESS) {
+    return err;
   }
   m_connWait = ctx;
   ctx->Out();
@@ -213,8 +215,9 @@ std::tuple<size_t, ErrNo> TcpSocket::Read(GoContext *ctx, void *buf,
     if (irecv >= 0) {
       return std::make_tuple<size_t, ErrNo>(size_t(irecv), 0);
     }
-    if (errno != EAGAIN) {
-      return std::make_tuple<size_t, ErrNo>(size_t(0), ErrNo(errno));
+    int err = errno;
+    if (err != EAGAIN) {
+      return std::make_tuple<size_t, ErrNo>(size_t(0), ErrNo(err));
     }
     m_inWait = ctx;
     ctx->Out();
@@ -331,8 +334,9 @@ std::tuple<size_t, ErrNo> UdpSocket::Recvfrom(GoContext *ctx, void *buf,
     if (irecv >= 0) {
       return std::make_tuple<size_t, ErrNo>(size_t(irecv), 0);
     }
-    if (errno != EAGAIN) {
-      return std::make_tuple<size_t, ErrNo>(size_t(0), ErrNo(errno));
+    int err = errno;
+    if (err != EAGAIN) {
+      return std::make_tuple<size_t, ErrNo>(size_t(0), ErrNo(err));
     }
     m_inWait = ctx;
     ctx->Out();
