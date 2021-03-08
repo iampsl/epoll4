@@ -16,7 +16,7 @@
 到官网 https://www.boost.org/   下载最新的release版本
 # 2.编译boost
 
-进入boost代码目录(比如boost_1_70_0)，先执行./bootstrap.sh 生成编译boost库工具,然后执行
+进入boost代码目录(比如boost_1_75_0)，先执行./bootstrap.sh 生成编译boost库工具,然后执行
 
 ./b2 --with-context variant=release optimization=speed link=shared threading=multi runtime-link=shared stage
 
@@ -27,15 +27,16 @@
 
 库头文件目录
 
-HEAD_DIR=-I/home/iampsl/boost_1_70_0/
+HEAD_DIR=-I/usr/local/boost_1_75_0/
 
 
 库文件目录
 
-LIB_DIR=-L/home/iampsl/boost_1_70_0/stage/lib/
+LIB_DIR=-L/usr/local/boost_1_75_0/stage/lib/
 
 
 执行make
+
 # 4.例子
 可以参考server.cpp这个文件
 # 5.反馈
