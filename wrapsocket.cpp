@@ -175,6 +175,39 @@ ErrNo TcpSocket::Connect(GoContext *ctx, const char *szip, uint16_t port) {
   return error;
 }
 
+ErrNo TcpSocket::ConnectWithTimeOut(GoContext *ctx, const char *szip,
+                                    uint16_t port, unsigned int seconds) {
+  if (seconds == 0) {
+    return Connect(ctx, szip, port);
+  }
+  GoChan tmpChan(ctx->GetEpoll());
+  bool timeout = false;
+  TcpSocket *pSocket = this;
+  time_t endpoint = time(nullptr) + seconds;
+  ctx->GetEpoll()->Go([&tmpChan, &timeout, &pSocket, endpoint](GoContext &ctx) {
+    while (true) {
+      if (pSocket == nullptr) {
+        tmpChan.Wake();
+        return;
+      }
+      time_t now = time(nullptr);
+      if (now >= endpoint) {
+        timeout = true;
+        pSocket->Close();
+        return;
+      }
+      ctx.Sleep(1);
+    }
+  });
+  auto err = this->Connect(ctx, szip, port);
+  if (timeout) {
+    return ETIMEDOUT;
+  }
+  pSocket = nullptr;
+  tmpChan.Wait(ctx);
+  return err;
+}
+
 void TcpSocket::Write(const void *buf, size_t nbytes) {
   if (m_sendFail) {
     return;

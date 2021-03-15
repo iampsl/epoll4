@@ -157,14 +157,21 @@ void Stat(GoContext &ctx) {
   }
 }
 
+void testConnect(GoContext &ctx) {
+  TcpSocket connectSocket(ctx.GetEpoll());
+  connectSocket.Open();
+  auto err = connectSocket.ConnectWithTimeOut(&ctx, "14.215.177.38", 80, 4);
+  if (err != 0) {
+    printf("connect failed:%s\n", strerror(err));
+  } else {
+    printf("connect success\n");
+  }
+}
+
 void server::Start(int num) {
   printf("num=%d\n", num);
   m_epoll.Create();
-  m_epoll.Go(Accept);
-  m_epoll.Go(Stat);
-  for (int i = 0; i < num; i++) {
-    m_epoll.Go(client);
-  }
+  m_epoll.Go(testConnect);
   while (true) {
     m_epoll.Wait(1000);
   }
