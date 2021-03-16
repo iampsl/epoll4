@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+enum CmdID {
+    HEART_BEAT = 0;
+    QUERY_USER_INFO = 1;
+}
+
+
+message QueryUserInfoReq{
+    string UserName = 1;
+}
+
+message QueryUserInfoRsp{
+    string UserName = 1;
+    string Password = 2;
+    fixed32 Money = 3;
+}
+

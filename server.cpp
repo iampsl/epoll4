@@ -171,7 +171,7 @@ void testConnect(GoContext &ctx) {
 void server::Start(int num) {
   printf("num=%d\n", num);
   m_epoll.Create();
-  m_epoll.Go(testConnect);
+  m_goclient.Start(&m_epoll, "127.0.0.1", 80);
   while (true) {
     m_epoll.Wait(1000);
   }

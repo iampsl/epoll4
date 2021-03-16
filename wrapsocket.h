@@ -8,6 +8,8 @@
 #include "epoll.h"
 
 void SockAddr(sockaddr_in &addr, const char *szip, uint16_t port);
+#define ErrorInfo(err) \
+  fprintf(stderr, "%s:%d errno=%d\n", __FILE__, __LINE__, (err))
 
 class AcceptSocket : public INotify {
  public:
