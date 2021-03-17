@@ -5,6 +5,17 @@
 #include <cerrno>
 #include <ctime>
 
+time_t curtime() {
+  timespec ts;
+  if (clock_gettime(CLOCK_MONOTONIC_COARSE, &ts) == 0) {
+    return ts.tv_sec;
+  }
+  if (clock_gettime(CLOCK_MONOTONIC, &ts) == 0) {
+    return ts.tv_sec;
+  }
+  return time(NULL);
+}
+
 void goimpl(GoContext *pctx, std::function<void(GoContext &)> func,
             boost::coroutines2::coroutine<void>::pull_type &pull) {
   pctx->m_yield = &pull;
@@ -12,8 +23,9 @@ void goimpl(GoContext *pctx, std::function<void(GoContext &)> func,
   pctx->GetEpoll()->release(pctx);
 }
 
-GoContext::GoContext(Epoll *e, std::function<void(GoContext &)> func)
-    : m_self(boost::coroutines2::fixedsize_stack(1024 * 1024 * 8),
+GoContext::GoContext(Epoll *e, std::function<void(GoContext &)> func,
+                     std::size_t stackSize)
+    : m_self(boost::coroutines2::fixedsize_stack(stackSize),
              std::bind(goimpl, this, std::move(func), std::placeholders::_1)) {
   m_epoll = e;
   m_yield = nullptr;
@@ -34,7 +46,7 @@ bool GoChan::Wake() {
 Epoll::Epoll() {
   m_epollFd = -1;
   m_del = nullptr;
-  time(&m_baseTime);
+  m_baseTime = curtime();
   m_timeIndex = 0;
 }
 
@@ -85,8 +97,8 @@ void Epoll::push(std::function<void()> func) {
   m_funcs.push_back(std::move(func));
 }
 
-void Epoll::Go(std::function<void(GoContext &)> func) {
-  auto pctx = new GoContext(this, std::move(func));
+void Epoll::Go(std::function<void(GoContext &)> func, std::size_t stackSize) {
+  auto pctx = new GoContext(this, std::move(func), stackSize);
   push([pctx]() { pctx->In(); });
 }
 
@@ -134,8 +146,7 @@ void Epoll::release(GoContext *pctx) {
 }
 
 void Epoll::onTime() {
-  time_t now;
-  time(&now);
+  time_t now = curtime();
   auto sub = now - m_baseTime;
   if (sub <= 0) {
     return;

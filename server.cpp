@@ -41,17 +41,7 @@ void NewConnect(GoContext &ctx, int s) {
 
 void Accept(GoContext &ctx) {
   AcceptSocket paccept(ctx.GetEpoll());
-  ErrNo err = paccept.Open();
-  if (err) {
-    std::cout << strerror(err) << std::endl;
-    return;
-  }
-  err = paccept.Bind("0.0.0.0", port);
-  if (err) {
-    std::cout << strerror(err) << std::endl;
-    return;
-  }
-  err = paccept.Listen(1024);
+  auto err = paccept.Listen("/root/epoll4/release/test.sock");
   if (err) {
     std::cout << strerror(err) << std::endl;
     return;
@@ -63,6 +53,7 @@ void Accept(GoContext &ctx) {
       std::cout << strerror(err) << std::endl;
       continue;
     }
+    std::cout << "accept a new connect" << std::endl;
     ctx.GetEpoll()->Go(std::bind(NewConnect, std::placeholders::_1, newsocket));
   }
 }
@@ -75,12 +66,7 @@ void timer(GoContext &ctx) {
 
 void client(GoContext &ctx) {
   TcpSocket tcps(ctx.GetEpoll());
-  ErrNo err = tcps.Open();
-  if (err) {
-    std::cout << strerror(err) << std::endl;
-    return;
-  }
-  err = tcps.Connect(&ctx, "127.0.0.1", port);
+  auto err = tcps.Connect(&ctx, "127.0.0.1", port);
   if (err) {
     std::cout << strerror(err) << std::endl;
     return;
@@ -157,21 +143,11 @@ void Stat(GoContext &ctx) {
   }
 }
 
-void testConnect(GoContext &ctx) {
-  TcpSocket connectSocket(ctx.GetEpoll());
-  connectSocket.Open();
-  auto err = connectSocket.ConnectWithTimeOut(&ctx, "14.215.177.38", 80, 4);
-  if (err != 0) {
-    printf("connect failed:%s\n", strerror(err));
-  } else {
-    printf("connect success\n");
-  }
-}
-
 void server::Start(int num) {
   printf("num=%d\n", num);
   m_epoll.Create();
-  m_goclient.Start(&m_epoll, "127.0.0.1", 80);
+  m_epoll.Go(Accept);
+  m_goclient.Start(&m_epoll, "/root/epoll4/release/test.sock");
   while (true) {
     m_epoll.Wait(1000);
   }

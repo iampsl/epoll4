@@ -8,8 +8,6 @@
 #include "epoll.h"
 
 void SockAddr(sockaddr_in &addr, const char *szip, uint16_t port);
-#define ErrorInfo(err) \
-  fprintf(stderr, "%s:%d errno=%d\n", __FILE__, __LINE__, (err))
 
 class AcceptSocket : public INotify {
  public:
@@ -17,9 +15,8 @@ class AcceptSocket : public INotify {
   AcceptSocket(const AcceptSocket &) = delete;
   AcceptSocket &operator=(const AcceptSocket &) = delete;
   ~AcceptSocket();
-  ErrNo Open();
-  ErrNo Bind(const char *szip, uint16_t port);
-  ErrNo Listen(int backlog);
+  ErrNo Listen(const char *szip, uint16_t port, int backlog = 128);
+  ErrNo Listen(const char *unixPath, int backlog = 128);
   std::tuple<int, ErrNo> Accept(GoContext *ctx);
   void Close();
 
@@ -40,13 +37,17 @@ class TcpSocket : public INotify {
   TcpSocket &operator=(const TcpSocket &) = delete;
   ~TcpSocket();
   ErrNo Open(int fd);
-  ErrNo Open();
-  ErrNo Connect(GoContext *ctx, const char *szip, uint16_t port);
-  ErrNo ConnectWithTimeOut(GoContext *ctx, const char *szip, uint16_t port,
-                           unsigned int seconds);
+  ErrNo Connect(GoContext *ctx, const char *szip, uint16_t port,
+                unsigned int seconds);
+  ErrNo Connect(GoContext *ctx, const char *unixPath, unsigned int seconds);
   void Write(const void *buf, size_t nbytes);
   std::tuple<size_t, ErrNo> Read(GoContext *ctx, void *buf, size_t nbytes);
   void Close();
+
+ private:
+  ErrNo doConnectWithTimeout(GoContext *ctx, const sockaddr *addr,
+                             socklen_t len, unsigned int seconds);
+  ErrNo doConnect(GoContext *ctx, const sockaddr *addr, socklen_t len);
 
  private:
   virtual void OnIn() override;

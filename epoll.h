@@ -10,34 +10,37 @@
 
 typedef int ErrNo;
 
+time_t curtime();
+
 class INotify {
-public:
+ public:
   virtual void OnIn() = 0;
   virtual void OnOut() = 0;
 };
 
 class Epoll;
 class GoContext {
-public:
+ public:
   void Out() { (*m_yield)(); }
   void In() { m_self(); }
   void Sleep(unsigned int s);
   Epoll *GetEpoll() { return m_epoll; }
 
-private:
+ private:
   friend Epoll;
   friend void goimpl(GoContext *pctx, std::function<void(GoContext &)> func,
                      boost::coroutines2::coroutine<void>::pull_type &pull);
-  GoContext(Epoll *e, std::function<void(GoContext &)> func);
+  GoContext(Epoll *e, std::function<void(GoContext &)> func,
+            std::size_t stackSize);
 
-private:
+ private:
   Epoll *m_epoll;
   boost::coroutines2::coroutine<void>::push_type m_self;
   boost::coroutines2::coroutine<void>::pull_type *m_yield;
 };
 
 class GoChan {
-public:
+ public:
   GoChan(Epoll *e) {
     m_epoll = e;
     m_wait = nullptr;
@@ -49,22 +52,23 @@ public:
   bool Wake();
   Epoll *GetEpoll() { return m_epoll; }
 
-private:
+ private:
   Epoll *m_epoll;
   GoContext *m_wait;
 };
 
 class Epoll {
-public:
+ public:
   Epoll();
   Epoll(const Epoll &) = delete;
   Epoll &operator=(const Epoll &) = delete;
   ~Epoll();
   ErrNo Create();
   ErrNo Wait(int ms);
-  void Go(std::function<void(GoContext &)> func);
+  void Go(std::function<void(GoContext &)> func,
+          std::size_t stackSize = 1024 * 1024 * 8);
 
-private:
+ private:
   ErrNo add(int s, INotify *pnotify);
   void del(int s, INotify *pnotify);
   bool exist(INotify *pnotify);
@@ -74,7 +78,7 @@ private:
   void tick();
   void onTime();
 
-private:
+ private:
   friend class AcceptSocket;
   friend class TcpSocket;
   friend class UdpSocket;
@@ -83,7 +87,7 @@ private:
   friend void goimpl(GoContext *pctx, std::function<void(GoContext &)> func,
                      boost::coroutines2::coroutine<void>::pull_type &pull);
 
-private:
+ private:
   int m_epollFd;
   GoContext *m_del;
   std::unordered_set<INotify *> m_notifies;

@@ -3,6 +3,8 @@
 #include <cstdio>
 #include <cstring>
 
+#include "ctogo.pb.h"
+
 /*
   消息由包头和包体组成,包头长度为固定11字节
   |4字节|4字节|1字节|2字节|包体|
@@ -34,14 +36,40 @@ GoClient::GoClient() {
   m_reqSeq = 0;
 }
 
+void GoClient::Check(GoContext &ctx) {
+  while (true) {
+    ctx.Sleep(60);
+    doCheck();
+  }
+}
+
+void GoClient::doCheck() {
+  if (m_psocket == nullptr) {
+    return;
+  }
+  time_t now = curtime();
+  std::vector<std::pair<uint32_t, uint16_t>> willDel;
+  for (auto &&v : m_waitResp) {
+    if (now >= v.second.second + 60) {
+      (v.second.first)(ETIMEDOUT, nullptr, 0);
+      willDel.push_back(v.first);
+    }
+  }
+  for (auto &&v : willDel) {
+    fprintf(stderr, "wait timeout seq=%lu cmd=%lu\n",
+            (unsigned long int)(v.first), (unsigned long int)(v.second));
+    m_waitResp.erase(v);
+  }
+}
+
 void GoClient::Worker(GoContext &ctx) {
   while (true) {
     auto err = doWork(ctx);
-    ErrorInfo(err);
+    fprintf(stderr, "%s:%d errno=%d\n", __FILE__, __LINE__, int(err));
     m_psocket = nullptr;
     m_msg.clear();
     for (auto iter = m_waitResp.begin(); iter != m_waitResp.end(); ++iter) {
-      (iter->second)(err, nullptr, 0);
+      (iter->second.first)(err, nullptr, 0);
     }
     m_waitResp.clear();
     ctx.Sleep(2);
@@ -49,11 +77,12 @@ void GoClient::Worker(GoContext &ctx) {
 }
 ErrNo GoClient::doWork(GoContext &ctx) {
   TcpSocket connSocket(ctx.GetEpoll());
-  ErrNo err = connSocket.Open();
-  if (err) {
-    return err;
+  ErrNo err = 0;
+  if (m_unixPath.empty()) {
+    err = connSocket.Connect(&ctx, m_ip.c_str(), m_port, 5);
+  } else {
+    err = connSocket.Connect(&ctx, m_unixPath.c_str(), 5);
   }
-  err = connSocket.ConnectWithTimeOut(&ctx, m_ip.c_str(), m_port, 5);
   if (err) {
     return err;
   }
@@ -123,8 +152,8 @@ std::tuple<size_t, ErrNo> GoClient::onProcess(void *pdata, size_t size) {
               (unsigned long int)(length), (unsigned long int)(seq),
               (unsigned long int)(cmd));
     } else {
-      (iter->second)(ErrNo(0), ((uint8_t *)pdata) + MSG_HEAD_LEN,
-                     length - MSG_HEAD_LEN);
+      (iter->second.first)(ErrNo(0), ((uint8_t *)pdata) + MSG_HEAD_LEN,
+                           length - MSG_HEAD_LEN);
       m_waitResp.erase(iter);
     }
   } else {
@@ -140,4 +169,14 @@ void GoClient::Start(Epoll *e, const char *szip, uint16_t port) {
   m_ip.assign(szip);
   m_port = port;
   m_epoll->Go(std::bind(&GoClient::Worker, this, std::placeholders::_1));
+  m_epoll->Go(std::bind(&GoClient::Check, this, std::placeholders::_1));
 }
+
+void GoClient::Start(Epoll *e, const char *unixPath) {
+  m_epoll = e;
+  m_unixPath.assign(unixPath);
+  m_epoll->Go(std::bind(&GoClient::Worker, this, std::placeholders::_1));
+  m_epoll->Go(std::bind(&GoClient::Check, this, std::placeholders::_1));
+}
+
+void GoClient::QueryUserInfo(GoContext *ctx, const std::string &username) {}

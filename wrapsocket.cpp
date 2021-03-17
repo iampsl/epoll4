@@ -6,11 +6,15 @@
 #include <netinet/tcp.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/un.h>
 #include <unistd.h>
 
 #include <cerrno>
 #include <cstdio>
 #include <cstring>
+
+#define ErrorInfo(err) \
+  fprintf(stderr, "%s:%d errno=%d\n", __FILE__, __LINE__, int(err))
 
 ErrNo SetNoblock(int fd) {
   int iflag = fcntl(fd, F_GETFL, 0);
@@ -39,41 +43,107 @@ AcceptSocket::AcceptSocket(Epoll *e) {
 
 AcceptSocket::~AcceptSocket() { Close(); }
 
-ErrNo AcceptSocket::Open() {
+ErrNo AcceptSocket::Listen(const char *szip, uint16_t port, int backlog) {
+  if (m_fd != -1) {
+    return EEXIST;
+  }
   int fd = socket(AF_INET, SOCK_STREAM, 0);
   if (fd == -1) {
     return errno;
   }
-  m_fd = fd;
-  return 0;
-}
-
-ErrNo AcceptSocket::Bind(const char *szip, uint16_t port) {
   sockaddr_in addr;
   memset(&addr, 0, sizeof(addr));
   addr.sin_family = AF_INET;
   addr.sin_addr.s_addr = inet_addr(szip);
   addr.sin_port = htons(port);
-  int ibind = ::bind(m_fd, (const sockaddr *)(&addr), sizeof(addr));
+  int ibind = ::bind(fd, (const sockaddr *)(&addr), sizeof(addr));
   if (-1 == ibind) {
-    return errno;
+    int err = errno;
+    if (close(fd) != 0) {
+      ErrorInfo(errno);
+    }
+    return err;
   }
-  return 0;
-}
-
-ErrNo AcceptSocket::Listen(int backlog) {
   if (backlog < 128) {
     backlog = 128;
   }
-  int ilisten = listen(m_fd, backlog);
+  int ilisten = listen(fd, backlog);
   if (-1 == ilisten) {
-    return errno;
+    int err = errno;
+    if (close(fd) != 0) {
+      ErrorInfo(errno);
+    }
+    return err;
   }
-  int iset = SetNoblock(m_fd);
+  int iset = SetNoblock(fd);
   if (iset != 0) {
+    if (close(fd) != 0) {
+      ErrorInfo(errno);
+    }
     return iset;
   }
-  return m_epoll->add(m_fd, this);
+  int iadd = m_epoll->add(fd, this);
+  if (iadd == 0) {
+    m_fd = fd;
+    return 0;
+  }
+  if (close(fd) != 0) {
+    ErrorInfo(errno);
+  }
+  return iadd;
+}
+
+ErrNo AcceptSocket::Listen(const char *unixPath, int backlog) {
+  if (m_fd != -1) {
+    return EEXIST;
+  }
+  sockaddr_un addr;
+  if (strlen(unixPath) >= sizeof(addr.sun_path)) {
+    return ENAMETOOLONG;
+  }
+  int fd = socket(AF_UNIX, SOCK_STREAM, 0);
+  if (fd == -1) {
+    return errno;
+  }
+  memset(&addr, 0, sizeof(addr));
+  addr.sun_family = AF_UNIX;
+  strcpy(addr.sun_path, unixPath);
+  int ibind = ::bind(fd, (const sockaddr *)&addr,
+                     offsetof(sockaddr_un, sun_path) + strlen(addr.sun_path));
+  if (-1 == ibind) {
+    int err = errno;
+    if (close(fd) != 0) {
+      ErrorInfo(errno);
+    }
+    return err;
+  }
+  if (backlog < 128) {
+    backlog = 128;
+  }
+  int ilisten = listen(fd, backlog);
+  if (-1 == ilisten) {
+    int err = errno;
+    if (close(fd) != 0) {
+      ErrorInfo(errno);
+    }
+    return err;
+  }
+  int iset = SetNoblock(fd);
+  if (iset != 0) {
+    if (close(fd) != 0) {
+      ErrorInfo(errno);
+    }
+    return iset;
+  }
+  int iadd = m_epoll->add(fd, this);
+  if (iadd == 0) {
+    m_fd = fd;
+    return 0;
+  }
+  if (close(fd) != 0) {
+    ErrorInfo(errno);
+  }
+  return iadd;
 }
 
 std::tuple<int, ErrNo> AcceptSocket::Accept(GoContext *ctx) {
@@ -96,7 +166,9 @@ void AcceptSocket::Close() {
     return;
   }
   m_epoll->del(m_fd, this);
-  close(m_fd);
+  if (close(m_fd) != 0) {
+    ErrorInfo(errno);
+  }
   m_fd = -1;
   if (m_inWait == nullptr) {
     return;
@@ -127,37 +199,99 @@ TcpSocket::TcpSocket(Epoll *e) {
 
 TcpSocket::~TcpSocket() { Close(); }
 
-ErrNo TcpSocket::Open() {
+ErrNo TcpSocket::Open(int fd) {
+  if (m_fd != -1) {
+    return EEXIST;
+  }
+  int iset = SetNoblock(fd);
+  if (iset != 0) {
+    if (close(fd) != 0) {
+      ErrorInfo(errno);
+    }
+    return iset;
+  }
+  auto iadd = m_epoll->add(fd, this);
+  if (iadd == 0) {
+    m_fd = fd;
+    return 0;
+  }
+  if (close(fd) != 0) {
+    ErrorInfo(errno);
+  }
+  return iadd;
+}
+
+ErrNo TcpSocket::Connect(GoContext *ctx, const char *szip, uint16_t port,
+                         unsigned int seconds) {
+  if (m_fd != -1) {
+    return EEXIST;
+  }
   int fd = socket(AF_INET, SOCK_STREAM, 0);
   if (fd == -1) {
     return errno;
   }
   int iset = SetNoblock(fd);
   if (iset != 0) {
-    close(fd);
+    if (close(fd) != 0) {
+      ErrorInfo(errno);
+    }
     return iset;
   }
-  m_fd = fd;
-  return m_epoll->add(m_fd, this);
-}
-
-ErrNo TcpSocket::Open(int fd) {
-  int iset = SetNoblock(fd);
-  if (iset != 0) {
-    close(fd);
-    return iset;
+  int iadd = m_epoll->add(fd, this);
+  if (iadd != 0) {
+    if (close(fd) != 0) {
+      ErrorInfo(errno);
+    }
+    return iadd;
   }
   m_fd = fd;
-  return m_epoll->add(m_fd, this);
-}
-
-ErrNo TcpSocket::Connect(GoContext *ctx, const char *szip, uint16_t port) {
   sockaddr_in addr;
   memset(&addr, 0, sizeof(addr));
   addr.sin_family = AF_INET;
   addr.sin_addr.s_addr = inet_addr(szip);
   addr.sin_port = htons(port);
-  int iconn = connect(m_fd, (const sockaddr *)(&addr), sizeof(addr));
+  return doConnectWithTimeout(ctx, (const sockaddr *)(&addr), sizeof(addr),
+                              seconds);
+}
+ErrNo TcpSocket::Connect(GoContext *ctx, const char *unixPath,
+                         unsigned int seconds) {
+  if (m_fd != -1) {
+    return EEXIST;
+  }
+  sockaddr_un addr;
+  if (strlen(unixPath) >= sizeof(addr.sun_path)) {
+    return ENAMETOOLONG;
+  }
+  int fd = socket(AF_UNIX, SOCK_STREAM, 0);
+  if (fd == -1) {
+    return errno;
+  }
+  int iset = SetNoblock(fd);
+  if (iset != 0) {
+    if (close(fd) != 0) {
+      ErrorInfo(errno);
+    }
+    return iset;
+  }
+  int iadd = m_epoll->add(fd, this);
+  if (iadd != 0) {
+    if (close(fd) != 0) {
+      ErrorInfo(errno);
+    }
+    return iadd;
+  }
+  m_fd = fd;
+  memset(&addr, 0, sizeof(addr));
+  addr.sun_family = AF_UNIX;
+  strcpy(addr.sun_path, unixPath);
+  return doConnectWithTimeout(
+      ctx, (const sockaddr *)(&addr),
+      offsetof(sockaddr_un, sun_path) + strlen(addr.sun_path), seconds);
+}
+
+ErrNo TcpSocket::doConnect(GoContext *ctx, const sockaddr *addr,
+                           socklen_t len) {
+  int iconn = connect(m_fd, addr, len);
   if (0 == iconn) {
     return 0;
   }
@@ -175,22 +309,22 @@ ErrNo TcpSocket::Connect(GoContext *ctx, const char *szip, uint16_t port) {
   return error;
 }
 
-ErrNo TcpSocket::ConnectWithTimeOut(GoContext *ctx, const char *szip,
-                                    uint16_t port, unsigned int seconds) {
+ErrNo TcpSocket::doConnectWithTimeout(GoContext *ctx, const sockaddr *addr,
+                                      socklen_t len, unsigned int seconds) {
   if (seconds == 0) {
-    return Connect(ctx, szip, port);
+    return doConnect(ctx, addr, len);
   }
   GoChan tmpChan(ctx->GetEpoll());
   bool timeout = false;
   TcpSocket *pSocket = this;
-  time_t endpoint = time(nullptr) + seconds;
+  time_t endpoint = curtime() + seconds;
   ctx->GetEpoll()->Go([&tmpChan, &timeout, &pSocket, endpoint](GoContext &ctx) {
     while (true) {
       if (pSocket == nullptr) {
         tmpChan.Wake();
         return;
       }
-      time_t now = time(nullptr);
+      time_t now = curtime();
       if (now >= endpoint) {
         timeout = true;
         pSocket->Close();
@@ -199,7 +333,7 @@ ErrNo TcpSocket::ConnectWithTimeOut(GoContext *ctx, const char *szip,
       ctx.Sleep(1);
     }
   });
-  auto err = this->Connect(ctx, szip, port);
+  auto err = doConnect(ctx, addr, len);
   if (timeout) {
     return ETIMEDOUT;
   }
@@ -262,8 +396,12 @@ void TcpSocket::Close() {
     return;
   }
   m_epoll->del(m_fd, this);
-  close(m_fd);
+  if (close(m_fd) != 0) {
+    ErrorInfo(errno);
+  }
   m_fd = -1;
+  m_sendFail = false;
+  m_writeBuffer.clear();
   if (m_connWait != nullptr) {
     GoContext *tmpWait = m_connWait;
     m_connWait = nullptr;
@@ -332,17 +470,29 @@ UdpSocket::UdpSocket(Epoll *e) {
 UdpSocket::~UdpSocket() { Close(); }
 
 ErrNo UdpSocket::Open() {
+  if (m_fd != -1) {
+    return EEXIST;
+  }
   int fd = socket(AF_INET, SOCK_DGRAM, 0);
   if (fd == -1) {
     return errno;
   }
   int iset = SetNoblock(fd);
   if (iset != 0) {
-    close(fd);
+    if (close(fd) != 0) {
+      ErrorInfo(errno);
+    }
     return iset;
   }
+  int iadd = m_epoll->add(fd, this);
+  if (iadd != 0) {
+    if (close(fd) != 0) {
+      ErrorInfo(errno);
+    }
+    return iadd;
+  }
   m_fd = fd;
-  return m_epoll->add(m_fd, this);
+  return 0;
 }
 
 ErrNo UdpSocket::Bind(const char *szip, uint16_t port) {
@@ -405,8 +555,11 @@ void UdpSocket::Close() {
     return;
   }
   m_epoll->del(m_fd, this);
-  close(m_fd);
+  if (close(m_fd) != 0) {
+    ErrorInfo(errno);
+  }
   m_fd = -1;
+  m_writeBuffer.clear();
   if (m_inWait == nullptr) {
     return;
   }
