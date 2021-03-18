@@ -26,7 +26,7 @@ HEAD_DIR=-I/usr/local/boost_1_75_0/
 LIB_DIR=-L/usr/local/boost_1_75_0/stage/lib
 
 #库文件
-LIB=-lboost_context 
+LIB=-lboost_context -lprotobuf
 
 #依赖其它工程库文件
 PROJECT_LIB=

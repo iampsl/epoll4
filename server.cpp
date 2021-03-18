@@ -17,13 +17,11 @@ void NewConnect(GoContext &ctx, int s) {
     std::cout << strerror(err) << std::endl;
     return;
   }
-  uint8_t pbuffer[1024];
-  size_t size = 0;
+  uint8_t pbuffer[10240];
   while (true) {
     ErrNo err = 0;
     size_t nread = 0;
-    std::tie(nread, err) =
-        ptcp.Read(&ctx, pbuffer + size, sizeof(pbuffer) - size);
+    std::tie(nread, err) = ptcp.Read(&ctx, pbuffer, sizeof(pbuffer));
     if (err != 0) {
       std::cout << strerror(err) << std::endl;
       return;
@@ -31,11 +29,7 @@ void NewConnect(GoContext &ctx, int s) {
     if (nread == 0) {
       return;
     }
-    size += nread;
-    if (size == sizeof(pbuffer)) {
-      ptcp.Write(pbuffer, sizeof(pbuffer));
-      size = 0;
-    }
+    ptcp.Write(pbuffer, nread);
   }
 }
 
@@ -143,11 +137,24 @@ void Stat(GoContext &ctx) {
   }
 }
 
+void TestRpc(GoContext &ctx) {
+  GoRPC goclient;
+  goclient.Start(ctx.GetEpoll(), "/root/epoll4/release/test.sock");
+  std::string username("iampsl");
+  timespec begTime;
+  clock_gettime(CLOCK_REALTIME, &begTime);
+  for (unsigned int i = 0; i < 10000000; i++) {
+    goclient.QueryUserInfo(&ctx, username);
+  }
+  timespec endTime;
+  clock_gettime(CLOCK_REALTIME, &endTime);
+  printf("time:%f\n", sub(&endTime, &begTime));
+}
+
 void server::Start(int num) {
-  printf("num=%d\n", num);
   m_epoll.Create();
   m_epoll.Go(Accept);
-  m_goclient.Start(&m_epoll, "/root/epoll4/release/test.sock");
+  m_epoll.Go(TestRpc);
   while (true) {
     m_epoll.Wait(1000);
   }

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "epoll.h"
-#include "goclient.h"
+#include "gorpc.h"
 
 class server {
  public:
@@ -9,5 +9,4 @@ class server {
 
  private:
   Epoll m_epoll;
-  GoClient m_goclient;
 };
