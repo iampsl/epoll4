@@ -8,7 +8,6 @@ void GoRPC::QueryUserInfo(GoContext *ctx, const std::string &username) {
   QueryUserInfoRsp rsp;
   ErrNo err = Call(ctx, QUERY_USER_INFO, req, rsp);
   if (err) {
-    fprintf(stderr, "call retrun %s\n", strerror(err));
     return;
   }
 }

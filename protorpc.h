@@ -7,6 +7,9 @@
 class ProtoRPC {
  public:
   ProtoRPC();
+  ProtoRPC(const ProtoRPC &) = delete;
+  ProtoRPC &operator=(const ProtoRPC &) = delete;
+
   void Start(Epoll *e, const char *szip, uint16_t port);
   void Start(Epoll *e, const char *unixPath);
 

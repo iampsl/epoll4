@@ -74,7 +74,7 @@ void ProtoRPC::Worker(GoContext &ctx) {
       (iter->second.CallBack)(err, nullptr, 0);
     }
     m_waitResp.clear();
-    ctx.Sleep(2);
+    ctx.Sleep(3);
   }
 }
 ErrNo ProtoRPC::doWork(GoContext &ctx) {
@@ -86,6 +86,8 @@ ErrNo ProtoRPC::doWork(GoContext &ctx) {
     err = connSocket.Connect(&ctx, m_unixPath.c_str(), 5);
   }
   if (err) {
+    fprintf(stderr, "%s:%d connect failed errno=%d\n", __FILE__, __LINE__,
+            int(err));
     return err;
   }
   m_psocket = &connSocket;
@@ -97,6 +99,8 @@ ErrNo ProtoRPC::doWork(GoContext &ctx) {
   size_t readBytes = 0;
   while (true) {
     if (readBytes == sizeof(readBuffer)) {
+      fprintf(stderr, "%s:%d msg size > readBuffer(%lu)\n", __FILE__, __LINE__,
+              (unsigned long int)(sizeof(readBuffer)));
       return EMSGSIZE;
     }
     ErrNo err = 0;
@@ -104,9 +108,12 @@ ErrNo ProtoRPC::doWork(GoContext &ctx) {
     std::tie(nread, err) = connSocket.Read(&ctx, readBuffer + readBytes,
                                            sizeof(readBuffer) - readBytes);
     if (err) {
+      fprintf(stderr, "%s:%d read socket failed errno=%d\n", __FILE__, __LINE__,
+              int(err));
       return err;
     }
     if (nread == 0) {
+      fprintf(stderr, "%s:%d read end of socket\n", __FILE__, __LINE__);
       return ENODATA;
     }
     readBytes += nread;
@@ -140,6 +147,8 @@ std::tuple<size_t, ErrNo> ProtoRPC::onProcess(void *pdata, size_t size) {
   uint16_t cmd = 0;
   parseMsgHead(pdata, length, seq, cmd);
   if (length < MSG_HEAD_LEN) {
+    fprintf(stderr, "%s:%d msg length(%lu) < %lu\n", __FILE__, __LINE__,
+            (unsigned long int)(length), (unsigned long int)(MSG_HEAD_LEN));
     return std::make_tuple<size_t, ErrNo>(size_t(0), ErrNo(EBADMSG));
   }
   if (length > size) {

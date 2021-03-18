@@ -21,6 +21,8 @@ class INotify {
 class Epoll;
 class GoContext {
  public:
+  GoContext(const GoContext &) = delete;
+  GoContext &operator=(const GoContext &) = delete;
   void Out() { (*m_yield)(); }
   void In() { m_self(); }
   void Sleep(unsigned int s);
@@ -45,6 +47,8 @@ class GoChan {
     m_epoll = e;
     m_wait = nullptr;
   }
+  GoChan(const GoChan &) = delete;
+  GoChan &operator=(const GoChan &) = delete;
   void Wait(GoContext *ctx) {
     m_wait = ctx;
     ctx->Out();
