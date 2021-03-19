@@ -35,7 +35,7 @@ void NewConnect(GoContext &ctx, int s) {
 
 void Accept(GoContext &ctx) {
   AcceptSocket paccept(ctx.GetEpoll());
-  auto err = paccept.Listen("/root/epoll4/release/test.sock");
+  auto err = paccept.Listen("/test.sock");
   if (err) {
     std::cout << strerror(err) << std::endl;
     return;
@@ -137,13 +137,12 @@ void Stat(GoContext &ctx) {
   }
 }
 
+GoRPC goclient;
 void TestRpc(GoContext &ctx) {
-  GoRPC goclient;
-  goclient.Start(ctx.GetEpoll(), "/root/epoll4/release/test.sock");
   std::string username("iampsl");
   timespec begTime;
   clock_gettime(CLOCK_REALTIME, &begTime);
-  for (unsigned int i = 0; i < 10000000; i++) {
+  for (unsigned int i = 0; i < 1000000; i++) {
     goclient.QueryUserInfo(&ctx, username);
   }
   timespec endTime;
@@ -153,8 +152,11 @@ void TestRpc(GoContext &ctx) {
 
 void server::Start(int num) {
   m_epoll.Create();
-  m_epoll.Go(Accept);
-  m_epoll.Go(TestRpc);
+  // m_epoll.Go(Accept);
+  goclient.Start(&m_epoll, "/test.sock");
+  for (int i = 0; i < 1; i++) {
+    m_epoll.Go(TestRpc);
+  }
   while (true) {
     m_epoll.Wait(1000);
   }

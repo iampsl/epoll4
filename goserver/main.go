@@ -16,12 +16,12 @@ const MSG_HEAD_LEN = 10
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	os.Remove("/root/epoll4/release/test.sock")
+	os.Remove("/test.sock")
 	ListenAndAccept()
 }
 
 func ListenAndAccept() {
-	listener, err := net.Listen("unix", "/root/epoll4/release/test.sock")
+	listener, err := net.Listen("unix", "/test.sock")
 	if err != nil {
 		log.Fatalln(err)
 	}
