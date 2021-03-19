@@ -1,5 +1,6 @@
 syntax = "proto3";
-
+package ctogo;
+option go_package = "goserver/ctogo";
 enum CmdID {
     HEART_BEAT = 0;
     QUERY_USER_INFO = 1;
